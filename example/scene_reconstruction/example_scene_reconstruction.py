@@ -10,7 +10,14 @@ import opencsp.common.lib.tool.file_tools as ft
 import opencsp.common.lib.tool.log_tools as lt
 
 
-def scene_reconstruction(dir_output, dir_input):
+def scene_reconstruction(
+    dir_output: str,
+    file_camera: str,
+    file_known_point_locations: str,
+    file_point_pair_distances: str,
+    file_alignment_points: str,
+    image_filter_path: str,
+):
     """
     Reconstructs the XYZ locations of Aruco markers in a scene.
 
@@ -18,14 +25,16 @@ def scene_reconstruction(dir_output, dir_input):
     ----------
     dir_output : str
         The directory where the output files, including point locations and calibration figures, will be saved.
-    dir_input : str
-        The directory containing the input files needed for scene reconstruction. This includes:
-
-        - 'camera.h5': HDF5 file containing camera parameters.
-        - 'known_point_locations.csv': CSV file with known point locations.
-        - 'aruco_marker_images/NAME.JPG': Directory containing images of Aruco markers.
-        - 'point_pair_distances.csv': CSV file with distances between point pairs.
-        - 'alignment_points.csv': CSV file with alignment points.
+    file_camera : str
+        HDF5 file containing camera parameters.
+    file_known_point_locations : str
+        CSV file with known point locations.
+    file_point_pair_distances : str
+        CSV file with distances between point pairs.
+    file_alignment_points : str
+        CSV file with alignment points.
+    image_filter_path : str
+        Directory containing images of Aruco markers.
 
     Notes
     -----
@@ -42,17 +51,31 @@ def scene_reconstruction(dir_output, dir_input):
 
     Examples
     --------
-    >>> scene_reconstruction('/path/to/output', '/path/to/input')
-
+    >>> # Run on sample data
+    >>> dir_base = join(opencsp_code_dir(), 'app/scene_reconstruction/test/data/data_measurement')
+    >>> file_kwargs = {
+    >>>     "file_camera": join(dir_base, 'camera.h5'),
+    >>>     "file_known_point_locations": join(dir_base, 'known_point_locations.csv'),
+    >>>     "image_filter_path": join(dir_base, 'aruco_marker_images/*.JPG'),
+    >>>     "file_point_pair_distances": join(dir_base, 'point_pair_distances.csv'),
+    >>>     "file_alignment_points": join(dir_base, 'alignment_points.csv'),
+    >>> }
+    >>> dir_output_working = join(dirname(__file__), 'data/output/scene_reconstruction')
+    >>> scene_reconstruction(dir_output_working, **file_kwargs)
     """
     # "ChatGPT 4o" assisted with generating this docstring.
 
+    # Define output directory
+    ft.create_directories_if_necessary(dir_output)
+
+    # Set up logger
+    lt.logger(join(dir_output, 'log.txt'), lt.log.INFO)
+
     # Load components
-    camera = Camera.load_from_hdf(join(dir_input, 'camera.h5'))
-    known_point_locations = np.loadtxt(join(dir_input, 'known_point_locations.csv'), delimiter=',', skiprows=1)
-    image_filter_path = join(dir_input, 'aruco_marker_images', '*.JPG')
-    point_pair_distances = np.loadtxt(join(dir_input, 'point_pair_distances.csv'), delimiter=',', skiprows=1)
-    alignment_points = np.loadtxt(join(dir_input, 'alignment_points.csv'), delimiter=',', skiprows=1)
+    camera = Camera.load_from_hdf(file_camera)
+    known_point_locations = np.loadtxt(file_known_point_locations, delimiter=',', skiprows=1)
+    point_pair_distances = np.loadtxt(file_point_pair_distances, delimiter=',', skiprows=1)
+    alignment_points = np.loadtxt(file_alignment_points, delimiter=',', skiprows=1)
 
     # Perform marker position calibration
     cal_scene_recon = SceneReconstruction(camera, known_point_locations, image_filter_path)
@@ -77,23 +100,17 @@ def scene_reconstruction(dir_output, dir_input):
         fig.savefig(join(dir_output, fig.get_label() + '.png'))
 
 
-def example_driver(dir_output_fixture, dir_input_fixture):
-
-    dir_input = join(opencsp_code_dir(), 'app/scene_reconstruction/test/data/data_measurement')
-    dir_output = join(dirname(__file__), 'data/output/scene_reconstruction')
-    if dir_input_fixture:
-        dir_input = dir_input_fixture
-    if dir_output_fixture:
-        dir_output = dir_input_fixture
-
-    # Define output directory
-    ft.create_directories_if_necessary(dir_input)
-
-    # Set up logger
-    lt.logger(join(dir_output, 'log.txt'), lt.log.INFO)
-
-    scene_reconstruction(dir_output, dir_input)
-
-
 if __name__ == '__main__':
-    example_driver()
+    # Setup directories to load example data
+    dir_base = join(opencsp_code_dir(), 'app/scene_reconstruction/test/data/data_measurement')
+    file_kwargs = {
+        "file_camera": join(dir_base, 'camera.h5'),
+        "file_known_point_locations": join(dir_base, 'known_point_locations.csv'),
+        "image_filter_path": join(dir_base, 'aruco_marker_images/*.JPG'),
+        "file_point_pair_distances": join(dir_base, 'point_pair_distances.csv'),
+        "file_alignment_points": join(dir_base, 'alignment_points.csv'),
+    }
+    dir_output_working = join(dirname(__file__), 'data/output/scene_reconstruction')
+
+    # Run
+    scene_reconstruction(dir_output_working, **file_kwargs)
